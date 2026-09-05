@@ -61,6 +61,11 @@ import org.fossify.calendar.helpers.REPLACE_DESCRIPTION
 import org.fossify.calendar.helpers.SHOW_GRID
 import org.fossify.calendar.helpers.SHOW_MIDNIGHT_SPANNING_EVENTS_AT_TOP
 import org.fossify.calendar.helpers.START_WEEKLY_AT
+import org.fossify.calendar.helpers.EVENT_BORDERS
+import org.fossify.calendar.helpers.EVENT_BORDERS_BLACK
+import org.fossify.calendar.helpers.EVENT_BORDERS_CALENDAR_COLOR
+import org.fossify.calendar.helpers.EVENT_BORDERS_NONE
+import org.fossify.calendar.helpers.EVENT_BORDERS_WHITE
 import org.fossify.calendar.helpers.START_WEEK_WITH_CURRENT_DAY
 import org.fossify.calendar.helpers.USE_PREVIOUS_EVENT_REMINDERS
 import org.fossify.calendar.helpers.VIBRATE
@@ -198,6 +203,7 @@ class SettingsActivity : SimpleActivity() {
         setupMidnightSpanEvents()
         setupAllowCustomizeDayCount()
         setupStartWeekWithCurrentDay()
+        setupEventBorders()
         setupVibrate()
         setupReminderSound()
         setupReminderAudioStream()
@@ -607,6 +613,30 @@ class SettingsActivity : SimpleActivity() {
             settingsStartWeekWithCurrentDay.toggle()
             config.startWeekWithCurrentDay = settingsStartWeekWithCurrentDay.isChecked
         }
+    }
+
+    private fun setupEventBorders() = binding.apply {
+        settingsEventBorders.text = getEventBordersText()
+        settingsEventBordersHolder.setOnClickListener {
+            val items = arrayListOf(
+                RadioItem(EVENT_BORDERS_NONE, getString(org.fossify.commons.R.string.none)),
+                RadioItem(EVENT_BORDERS_CALENDAR_COLOR, getString(R.string.calendar_color)),
+                RadioItem(EVENT_BORDERS_BLACK, getString(R.string.black)),
+                RadioItem(EVENT_BORDERS_WHITE, getString(org.fossify.commons.R.string.white)),
+            )
+
+            RadioGroupDialog(this@SettingsActivity, items, config.eventBorders) {
+                config.eventBorders = it as Int
+                settingsEventBorders.text = getEventBordersText()
+            }
+        }
+    }
+
+    private fun getEventBordersText() = when (config.eventBorders) {
+        EVENT_BORDERS_CALENDAR_COLOR -> getString(R.string.calendar_color)
+        EVENT_BORDERS_BLACK -> getString(R.string.black)
+        EVENT_BORDERS_WHITE -> getString(org.fossify.commons.R.string.white)
+        else -> getString(org.fossify.commons.R.string.none)
     }
 
     private fun setupWeekNumbers() = binding.apply {
@@ -1128,6 +1158,7 @@ class SettingsActivity : SimpleActivity() {
                 put(SHOW_MIDNIGHT_SPANNING_EVENTS_AT_TOP, config.showMidnightSpanningEventsAtTop)
                 put(ALLOW_CUSTOMIZE_DAY_COUNT, config.allowCustomizeDayCount)
                 put(START_WEEK_WITH_CURRENT_DAY, config.startWeekWithCurrentDay)
+                put(EVENT_BORDERS, config.eventBorders)
                 put(VIBRATE, config.vibrateOnReminder)
                 put(LAST_EVENT_REMINDER_MINUTES, config.lastEventReminderMinutes1)
                 put(LAST_EVENT_REMINDER_MINUTES_2, config.lastEventReminderMinutes2)
@@ -1243,6 +1274,7 @@ class SettingsActivity : SimpleActivity() {
 
                 ALLOW_CUSTOMIZE_DAY_COUNT -> config.allowCustomizeDayCount = value.toBoolean()
                 START_WEEK_WITH_CURRENT_DAY -> config.startWeekWithCurrentDay = value.toBoolean()
+                EVENT_BORDERS -> config.eventBorders = value.toInt()
                 VIBRATE -> config.vibrateOnReminder = value.toBoolean()
                 LAST_EVENT_REMINDER_MINUTES -> config.lastEventReminderMinutes1 = value.toInt()
                 LAST_EVENT_REMINDER_MINUTES_2 -> config.lastEventReminderMinutes2 = value.toInt()

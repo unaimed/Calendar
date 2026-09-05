@@ -5,7 +5,9 @@ import android.content.ClipData
 import android.content.ClipDescription
 import android.content.Intent
 import android.content.res.Resources
+import android.graphics.Color
 import android.graphics.drawable.ColorDrawable
+import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
 import android.os.Handler
 import android.util.Range
@@ -47,6 +49,10 @@ import org.fossify.calendar.helpers.EDIT_SELECTED_OCCURRENCE
 import org.fossify.calendar.helpers.EVENT_ID
 import org.fossify.calendar.helpers.EVENT_OCCURRENCE_TS
 import org.fossify.calendar.helpers.FLAG_ALL_DAY
+import androidx.core.graphics.ColorUtils
+import org.fossify.calendar.helpers.EVENT_BORDERS_BLACK
+import org.fossify.calendar.helpers.EVENT_BORDERS_NONE
+import org.fossify.calendar.helpers.EVENT_BORDERS_WHITE
 import org.fossify.calendar.helpers.Formatter
 import org.fossify.calendar.helpers.IS_TASK_COMPLETED
 import org.fossify.calendar.helpers.NEW_EVENT_SET_HOUR_DURATION
@@ -67,6 +73,9 @@ import org.fossify.commons.extensions.adjustAlpha
 import org.fossify.commons.extensions.applyColorFilter
 import org.fossify.commons.extensions.beGone
 import org.fossify.commons.extensions.beVisible
+import org.fossify.commons.extensions.darkenColor
+import org.fossify.commons.extensions.getProperBackgroundColor
+import org.fossify.commons.extensions.lightenColor
 import org.fossify.commons.extensions.beVisibleIf
 import org.fossify.commons.extensions.getContrastColor
 import org.fossify.commons.extensions.getProperPrimaryColor
@@ -90,6 +99,12 @@ import java.util.Calendar
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.roundToInt
+
+// how far an event's border is moved from its fill, in HSL luminosity percent
+private const val EVENT_BORDER_SHIFT_PERCENT = 20
+
+// a background lighter than this counts as a light theme, so borders go darker
+private const val DARK_BACKGROUND_LUMINANCE = 0.5
 
 class WeekFragment : Fragment(), WeeklyCalendar {
     private val WEEKLY_EVENT_ID_LABEL = "event_id_label"
@@ -777,7 +792,7 @@ class WeekFragment : Fragment(), WeeklyCalendar {
                             textColor = textColor.adjustAlpha(HIGHER_ALPHA)
                         }
 
-                        root.background = ColorDrawable(backgroundColor)
+                        root.background = eventBackground(backgroundColor)
                         dayColumn.addView(root)
                         root.y = currentEventWeeklyView!!.range.lower * minuteHeight
 
@@ -855,6 +870,33 @@ class WeekFragment : Fragment(), WeeklyCalendar {
         checkTopHolderHeight()
         addCurrentTimeIndicator()
     }
+
+    // An event is filled with its calendar's colour. Where borders are asked for it also
+    // gets an outline, which is what separates two events of one calendar where they
+    // touch - one ending as the next begins, or two sharing a column.
+    private fun eventBackground(color: Int) = if (config.eventBorders == EVENT_BORDERS_NONE) {
+        ColorDrawable(color)
+    } else {
+        GradientDrawable().apply {
+            setColor(color)
+            setStroke(res.getDimensionPixelSize(R.dimen.weekly_view_event_border), borderColor(color))
+        }
+    }
+
+    private fun borderColor(fill: Int) = when (config.eventBorders) {
+        EVENT_BORDERS_BLACK -> Color.BLACK
+        EVENT_BORDERS_WHITE -> Color.WHITE
+        // the calendar's own colour, moved away from the theme's background: lighter on a
+        // dark theme, darker on a light one, so the outline reads on either
+        else -> if (isDarkBackground()) {
+            fill.lightenColor(EVENT_BORDER_SHIFT_PERCENT)
+        } else {
+            fill.darkenColor(EVENT_BORDER_SHIFT_PERCENT)
+        }
+    }
+
+    private fun isDarkBackground() =
+        ColorUtils.calculateLuminance(requireContext().getProperBackgroundColor()) < DARK_BACKGROUND_LUMINANCE
 
     private fun addNewLine() {
         val allDaysLine = AllDayEventsHolderLineBinding.inflate(layoutInflater).root
@@ -941,7 +983,7 @@ class WeekFragment : Fragment(), WeeklyCalendar {
                 textColor = textColor.adjustAlpha(HIGHER_ALPHA)
             }
 
-            root.background = ColorDrawable(backgroundColor)
+            root.background = eventBackground(backgroundColor)
 
             weekEventLabel.apply {
                 setTextColor(textColor)

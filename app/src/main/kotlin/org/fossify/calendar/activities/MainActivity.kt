@@ -72,6 +72,7 @@ import org.fossify.calendar.helpers.SOURCE_CONTACT_BIRTHDAY
 import org.fossify.calendar.helpers.UPDATE_BOTTOM
 import org.fossify.calendar.helpers.UPDATE_TOP
 import org.fossify.calendar.helpers.VIEW_TO_OPEN
+import org.fossify.calendar.helpers.EVENT_BORDERS_NONE
 import org.fossify.calendar.helpers.WEEKLY_VIEW
 import org.fossify.calendar.helpers.WEEK_START_DATE_TIME
 import org.fossify.calendar.helpers.YEAR
@@ -161,6 +162,7 @@ class MainActivity : SimpleActivity(), RefreshRecyclerViewListener {
     private var mStoredDimCompletedTasks = true
     private var mStoredHighlightWeekends = false
     private var mStoredStartWeekWithCurrentDay = false
+    private var mStoredEventBorders = EVENT_BORDERS_NONE
     private var mStoredHighlightWeekendsColor = 0
 
     // search results have endless scrolling, so reaching the top/bottom fetches further results
@@ -269,12 +271,8 @@ class MainActivity : SimpleActivity(), RefreshRecyclerViewListener {
             }
         }
 
-        if (config.storedView == WEEKLY_VIEW) {
-            if (mStoredFirstDayOfWeek != config.firstDayOfWeek || mStoredUse24HourFormat != config.use24HourFormat
-                || mStoredMidnightSpan != config.showMidnightSpanningEventsAtTop || mStoredStartWeekWithCurrentDay != config.startWeekWithCurrentDay
-            ) {
-                updateViewPager()
-            }
+        if (config.storedView == WEEKLY_VIEW && weeklyViewSettingsChanged()) {
+            updateViewPager()
         }
 
         binding.apply {
@@ -402,6 +400,12 @@ class MainActivity : SimpleActivity(), RefreshRecyclerViewListener {
         checkIsViewIntent()
     }
 
+    private fun weeklyViewSettingsChanged() = mStoredFirstDayOfWeek != config.firstDayOfWeek
+        || mStoredUse24HourFormat != config.use24HourFormat
+        || mStoredMidnightSpan != config.showMidnightSpanningEventsAtTop
+        || mStoredStartWeekWithCurrentDay != config.startWeekWithCurrentDay
+        || mStoredEventBorders != config.eventBorders
+
     private fun storeStateVariables() {
         mStoredTextColor = getProperTextColor()
         mStoredPrimaryColor = getProperPrimaryColor()
@@ -415,6 +419,7 @@ class MainActivity : SimpleActivity(), RefreshRecyclerViewListener {
             mStoredHighlightWeekendsColor = highlightWeekendsColor
             mStoredMidnightSpan = showMidnightSpanningEventsAtTop
             mStoredStartWeekWithCurrentDay = startWeekWithCurrentDay
+            mStoredEventBorders = eventBorders
         }
         mStoredDayCode = Formatter.getTodayCode()
     }

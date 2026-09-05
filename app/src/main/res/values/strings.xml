@@ -154,6 +154,9 @@
     <!-- Weekly view -->
     <string name="week">Week</string>
     <string name="start_week_with_current_day">Start week with the current day</string>
+    <string name="event_borders">Event borders</string>
+    <string name="calendar_color">Calendar color</string>
+    <string name="black">Black</string>
 
     <!-- Calendars -->
     <string name="event_types">Calendars</string>
