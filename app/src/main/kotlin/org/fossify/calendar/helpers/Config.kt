@@ -29,6 +29,10 @@ class Config(context: Context) : BaseConfig(context) {
         set(startWeekWithCurrentDay) = prefs.edit()
             .putBoolean(START_WEEK_WITH_CURRENT_DAY, startWeekWithCurrentDay).apply()
 
+    var overlappingEvents: Int
+        get() = prefs.getInt(OVERLAPPING_EVENTS, OVERLAPPING_EVENTS_CASCADE)
+        set(overlappingEvents) = prefs.edit().putInt(OVERLAPPING_EVENTS, overlappingEvents).apply()
+
     var showMidnightSpanningEventsAtTop: Boolean
         get() = prefs.getBoolean(SHOW_MIDNIGHT_SPANNING_EVENTS_AT_TOP, true)
         set(midnightSpanning) = prefs.edit()

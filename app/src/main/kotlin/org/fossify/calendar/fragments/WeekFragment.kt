@@ -51,6 +51,7 @@ import org.fossify.calendar.helpers.Formatter
 import org.fossify.calendar.helpers.IS_TASK_COMPLETED
 import org.fossify.calendar.helpers.NEW_EVENT_SET_HOUR_DURATION
 import org.fossify.calendar.helpers.NEW_EVENT_START_TS
+import org.fossify.calendar.helpers.OVERLAPPING_EVENTS_CASCADE
 import org.fossify.calendar.helpers.TYPE_EVENT
 import org.fossify.calendar.helpers.TYPE_TASK
 import org.fossify.calendar.helpers.WEEK_START_TIMESTAMP
@@ -87,6 +88,7 @@ import org.fossify.commons.models.RadioItem
 import org.joda.time.DateTime
 import org.joda.time.Days
 import java.util.Calendar
+import kotlin.math.ceil
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.roundToInt
@@ -733,6 +735,23 @@ class WeekFragment : Fragment(), WeeklyCalendar {
             }
         }
 
+        val cascade = config.overlappingEvents == OVERLAPPING_EVENTS_CASCADE
+        val cascadeIndent = res.getDimension(R.dimen.weekly_view_cascade_indent)
+        // one line of an event label as it is really drawn, plus a pixel of slack
+        val labelLinePx = if (cascade) {
+            WeekEventMarkerBinding.inflate(layoutInflater).weekEventLabel.lineHeight + density.toFloat()
+        } else {
+            0f
+        }
+        if (cascade) {
+            // The threshold is a line of text, not a number of minutes; minutes are only
+            // how ranges are stored, so it shrinks as the view is zoomed in.
+            val minutesPerLabelLine = ceil(labelLinePx / minuteHeight).toInt()
+            for ((_, eventDayList) in eventTimeRanges) {
+                assignCascadeLanes(eventDayList.values.sortedBy { it.range.lower }, minutesPerLabelLine)
+            }
+        }
+
         dayevents@ for (event in events) {
             val startDateTime = Formatter.getDateTimeFromTS(event.startTS)
             val startDayCode = Formatter.getDayCodeFromDateTime(startDateTime)
@@ -791,10 +810,24 @@ class WeekFragment : Fragment(), WeeklyCalendar {
 
                         weekEventLabel.apply {
                             setTextColor(textColor)
-                            maxLines = if (event.isTask() || event.startTS == event.endTS) {
-                                1
-                            } else {
-                                3
+                            val singleLine = event.isTask() || event.startTS == event.endTS
+                            maxLines = if (singleLine) 1 else 3
+
+                            if (cascade && !singleLine) {
+                                // A covered label stops at the last whole line above the event
+                                // drawn over it, so no half-hidden text peeks out; an uncovered
+                                // one keeps the usual three lines, or more where there is room.
+                                // Never an ellipsis here: the title is not cut short, it carries
+                                // on underneath the next event.
+                                val covered = currentEventWeeklyView.uncoveredMinutes != Int.MAX_VALUE
+                                val visibleMinutes = if (covered) {
+                                    currentEventWeeklyView.uncoveredMinutes
+                                } else {
+                                    currentEventWeeklyView.range.upper - currentEventWeeklyView.range.lower
+                                }
+                                val linesThatFit = (visibleMinutes * minuteHeight / labelLinePx).toInt()
+                                maxLines = if (covered) max(1, linesThatFit) else max(maxLines, linesThatFit)
+                                ellipsize = null
                             }
 
                             text = event.title
@@ -809,11 +842,26 @@ class WeekFragment : Fragment(), WeeklyCalendar {
                         }
 
                         (root.layoutParams as RelativeLayout.LayoutParams).apply {
-                            width = (dayColumn.width - 1) / currentEventWeeklyView.slotMax
-                            root.x = (width * (currentEventWeeklyView.slot - 1)).toFloat()
-                            if (currentEventWeeklyView.slot > 1) {
-                                root.x += density
-                                width -= density
+                            if (cascade) {
+                                // later starts were added later, so they already draw on top.
+                                // Stop indenting once every lane is down to two indents wide,
+                                // or a deep enough stack would leave no width at all.
+                                val lanes = currentEventWeeklyView.laneCount
+                                val maxLeft = (dayColumn.width - 2 * cascadeIndent * lanes).coerceAtLeast(0f)
+                                val left = min(cascadeIndent * currentEventWeeklyView.cascadeDepth, maxLeft)
+                                width = ((dayColumn.width - 1 - left) / lanes).toInt().coerceAtLeast(1)
+                                root.x = left + width * currentEventWeeklyView.lane
+                                if (currentEventWeeklyView.lane > 0) {
+                                    root.x += density
+                                    width -= density
+                                }
+                            } else {
+                                width = (dayColumn.width - 1) / currentEventWeeklyView.slotMax
+                                root.x = (width * (currentEventWeeklyView.slot - 1)).toFloat()
+                                if (currentEventWeeklyView.slot > 1) {
+                                    root.x += density
+                                    width -= density
+                                }
                             }
                         }
 
@@ -855,6 +903,54 @@ class WeekFragment : Fragment(), WeeklyCalendar {
         checkTopHolderHeight()
         addCurrentTimeIndicator()
     }
+
+    // Groups a day's events for the cascade layout, in start order. An event joins the
+    // group of an overlapping event that starts less than one label line above it: such a
+    // pair cannot cascade without covering the earlier title, so the group shares the
+    // width in lanes instead. A group sits one indent deeper than the deepest
+    // earlier-starting group it overlaps.
+    private fun assignCascadeLanes(views: List<EventWeeklyView>, minutesPerLabelLine: Int) {
+        val groups = ArrayList<ArrayList<EventWeeklyView>>()
+        for (view in views) {
+            val group = groups.firstOrNull { group ->
+                view.range.lower - group.first().range.lower < minutesPerLabelLine
+                    && group.any { it.range.overlapsInTime(view.range) }
+            } ?: ArrayList<EventWeeklyView>().also { groups.add(it) }
+            group.add(view)
+        }
+
+        val depths = IntArray(groups.size)
+        groups.forEachIndexed { index, group ->
+            var depth = 0
+            for (earlier in 0 until index) {
+                val other = groups[earlier]
+                if (other.first().range.lower < group.first().range.lower && other.overlaps(group)) {
+                    depth = max(depth, depths[earlier] + 1)
+                }
+            }
+            depths[index] = depth
+
+            // Anything outside this group that starts later is drawn over these events, so
+            // remember how long each one stays uncovered: its label stops there.
+            val outside = views.filter { candidate -> group.none { it === candidate } }
+            group.forEachIndexed { lane, view ->
+                view.cascadeDepth = depth
+                view.lane = lane
+                view.laneCount = group.size
+                view.uncoveredMinutes = outside
+                    .filter { it.range.lower > view.range.lower && it.range.overlapsInTime(view.range) }
+                    .minOfOrNull { it.range.lower - view.range.lower }
+                    ?: Int.MAX_VALUE
+            }
+        }
+    }
+
+    private fun List<EventWeeklyView>.overlaps(other: List<EventWeeklyView>) =
+        any { a -> other.any { b -> a.range.overlapsInTime(b.range) } }
+
+    // Range.intersects() counts a shared boundary minute as touching; two events where
+    // one ends exactly when the other starts do not overlap on screen.
+    private fun Range<Int>.overlapsInTime(other: Range<Int>) = lower < other.upper && other.lower < upper
 
     private fun addNewLine() {
         val allDaysLine = AllDayEventsHolderLineBinding.inflate(layoutInflater).root
