@@ -20,6 +20,15 @@ const val MAX_SEARCH_YEAR =
 
 // endless scrolling updating
 const val MIN_EVENTS_TRESHOLD = 30
+
+// how the weekly view lays out events that overlap in time
+const val OVERLAPPING_EVENTS_SIDE_BY_SIDE = 0
+const val OVERLAPPING_EVENTS_CASCADE = 1
+// what an event's outline is drawn in, in the weekly view
+const val EVENT_BORDERS_NONE = 0
+const val EVENT_BORDERS_CALENDAR_COLOR = 1
+const val EVENT_BORDERS_BLACK = 2
+const val EVENT_BORDERS_WHITE = 3
 const val INITIAL_EVENTS = 0
 const val UPDATE_TOP = 1
 const val UPDATE_BOTTOM = 2
@@ -88,6 +97,8 @@ const val EVENT_LIST_PERIOD = "event_list_period"
 const val WEEK_NUMBERS = "week_numbers"
 const val START_WEEKLY_AT = "start_weekly_at"
 const val START_WEEK_WITH_CURRENT_DAY = "start_week_with_current_day"
+const val OVERLAPPING_EVENTS = "overlapping_events"
+const val EVENT_BORDERS = "event_borders"
 const val SHOW_MIDNIGHT_SPANNING_EVENTS_AT_TOP = "show_midnight_spanning_events_at_top"
 const val ALLOW_CUSTOMIZE_DAY_COUNT = "allow_customise_day_count"
 const val VIBRATE = "vibrate"
